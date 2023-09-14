@@ -1,5 +1,8 @@
 # Change log
 
+# 2.5.0 (2020-05-30)
+- Performance improvements for tables based on QuerySets deferring excluded columns.
+
 # 2.4.1 (2021-10-04)
 - Add Persian (Farsi) locale ([#806](https://github.com/jieter/django-tables2/pull/806)) by [@Alirezaja1384](https://github.com/jieter/django-tables2/commits?author=Alirezaja1384)
 - Improved error message if openpyxl is not installed ([#816](https://github.com/jieter/django-tables2/pull/816))

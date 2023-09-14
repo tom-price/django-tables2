@@ -711,3 +711,68 @@ class RowAttrsTest(SimpleTestCase):
         html = table.as_html(request)
         td = parse(html).find(".//tbody/tr[1]/td[1]")
         self.assertEqual(td.attrib, {"data-column-name": "alpha"})
+
+
+class QuerysetTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        Person.objects.create(first_name="Bart", last_name="Simpson")
+        Person.objects.create(first_name="Ned", last_name="Flanders")
+
+    def test_exclude_columns(self):
+        """
+        Checks that a ``Table.Meta.exclude`` and an ``exclude`` argument when instantiating both
+        results in the addition of the ``Person.objects.all().defer(*exclude)`` to the QuerySet.
+        This check is done by asserting that the number of queries is more than 1 when accessing
+        a property that references a deferred field.
+        """
+        class Table(tables.Table):
+            name = tables.Column(accessor="name")
+
+            class Meta:
+                model = Person
+
+        class ExcludeTable(Table):
+            class Meta:
+                exclude = ["first_name"]
+
+        # base case, ensure that there are no deferred fields
+        base_table = Table(Person.objects.all())
+        self.assertSetEqual(base_table.data.data.query.deferred_loading[0],
+                            set(), "No fields should be deferred here")
+
+        # check that ``first_name`` is deferred when excluding during table instantiation
+        exclude_table = Table(Person.objects.all(), exclude=("first_name",))
+        self.assertSetEqual(exclude_table.data.data.query.deferred_loading[0],
+                            {'first_name'}, "first_name should be deferred")
+
+        # check that ``first_name`` is deferred when ``Table.Meta.exclude`` includes it
+        exclude_table_by_class = ExcludeTable(Person.objects.all())
+        self.assertSetEqual(exclude_table_by_class.data.data.query.deferred_loading[0],
+                            {'first_name'}, "first_name should be deferred")
+
+        # The ``name`` column defined in ``Table`` references the deferred field ``first_name``.
+        # check the number of queries is equal to 1 when no fields are deferred
+        with self.assertNumQueries(1):
+            list(base_table.as_values())
+
+        # the number of queries != 1 when the ``first_name`` is excluded on instantiation
+        with self.assertNumQueries(3):
+            list(exclude_table.as_values())
+
+        # the number of queries != 1 when the ``first_name`` is excluded in the table class
+        with self.assertNumQueries(3):
+            list(exclude_table_by_class.as_values())
+
+    def test_exclude_export(self):
+        class Table(tables.Table):
+            name = tables.Column(accessor="name")
+
+            class Meta:
+                model = Person
+
+        base_table = Table(Person.objects.all())
+        # the exclusion of first name from the can only be checked this way.
+        # The QuerySet cannot be accessed before it is evaluated.
+        with self.assertNumQueries(3):
+            list(base_table.as_values(exclude_columns=("first_name",)))

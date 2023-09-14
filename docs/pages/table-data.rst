@@ -99,3 +99,4 @@ However, when performance is degrading, these tips might help:
 2. Try to strip the table of customizations and check if performance improves.
    If so, re-add them one by one, checking for performance after each step.
    This should help to narrow down the source of your performance problems.
+3. Use `Table.Meta.exclude` to defer the loading of fields unused

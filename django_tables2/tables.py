@@ -13,6 +13,7 @@ from .config import RequestConfig
 from .data import TableData
 from .rows import BoundRows
 from .utils import Accessor, AttributeDict, OrderBy, OrderByTuple, Sequence
+from .data import TableQuerysetData
 
 
 class DeclarativeColumnsMetaclass(type):
@@ -287,6 +288,12 @@ class Table(metaclass=DeclarativeColumnsMetaclass):
         self.data = TableData.from_data(data=data)
         self.data.set_table(self)
 
+        if isinstance(self.data, TableQuerysetData):
+            model_field_names = {f.name for f in self.data.data.query.model._meta.get_fields()}
+            fields_to_exclude = model_field_names & set(self.exclude)
+            if fields_to_exclude:
+                self.data.data = self.data.data.defer(*fields_to_exclude)
+
         if default is None:
             default = self._meta.default
         self.default = default
@@ -487,6 +494,12 @@ class Table(metaclass=DeclarativeColumnsMetaclass):
         """
         if exclude_columns is None:
             exclude_columns = ()
+
+        if exclude_columns and isinstance(self.rows.data, TableQuerysetData):
+            model_field_names = {f.name for f in self.rows.data.data.query.model._meta.get_fields()}
+            fields_to_exclude = model_field_names & set(exclude_columns)
+            if fields_to_exclude:
+                self.rows.data.data = self.rows.data.data.defer(*fields_to_exclude)
 
         columns = [
             column
